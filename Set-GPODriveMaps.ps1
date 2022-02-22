@@ -12,14 +12,14 @@ The Excel workbook needs to be configured as follows:
     3. Drive label (optional)
     4. Filter (optional, can either be a group name or a distinguished name pointing at an OU)
 .PARAMETER GPName
-The value provided for this parameter will be used as the GPOs name.
+The value provided for this parameter will be used as the GPO's name.
 .PARAMETER Domain
 The value provided for this parameter will be used as the target domain for the GPO.
 If no value is provided the current domain will be used as the target domain.
 .PARAMETER Replace
 This switch defines which action is used for drive maps, Update or Replace.
 .NOTES
-Version:    1.8.2
+Version:    1.8.3
 Author:     Mönks, Dominik
 .LINK
 https://msdn.microsoft.com/en-us/library/cc232619.aspx
@@ -27,7 +27,8 @@ https://msdn.microsoft.com/en-us/library/cc232619.aspx
 https://msdn.microsoft.com/en-us/library/cc232618.aspx
 #>
 
-param([ValidateNotNullOrEmpty()]
+param([Parameter(Mandatory=$true)]
+        [ValidateNotNullOrEmpty()]
         [string]$GPName,
         [ValidateNotNullOrEmpty()]
         [string]$Domain = (Get-ADDomain).DistinguishedName.Replace(',DC=','.').TrimStart('DC='),
@@ -72,7 +73,7 @@ if (Test-Path "$PSScriptRoot\DriveMaps.xlsx")
     Write-Host 'Succeeded' -ForegroundColor Green
     # Check for existing GPO
     Write-Host 'Checking for existing GPO:'.PadRight($outputWidth) -NoNewline
-    if (($gpo = Get-GPO $GPName -Server $Domain -ErrorAction SilentlyContinue) -eq $null)
+    if ($null -eq ($gpo = Get-GPO $GPName -Server $Domain -ErrorAction SilentlyContinue))
     {
         Write-Host 'Failed' -ForegroundColor Yellow -NoNewline
         Write-Host ', creating GPO'
@@ -216,7 +217,7 @@ if (Test-Path "$PSScriptRoot\DriveMaps.xlsx")
                             eleStart 'Filters'
                             foreach ($group in $groups)
                             {
-                                if (($adobject = Get-ADGroup $group.Split('\')[1] -Server $group.Split('\')[0]) -ne $null)
+                                if ($null -eq ($adobject = Get-ADGroup $group.Split('\')[1] -Server $group.Split('\')[0]))
                                 {
                                     eleStart 'FilterGroup'
                                         att 'bool' 'OR'
@@ -231,7 +232,7 @@ if (Test-Path "$PSScriptRoot\DriveMaps.xlsx")
                             }
                             foreach ($ou in $ous)
                             {
-                                if (($adobject = Get-ADOrganizationalUnit -Filter "DistinguishedName -eq '$ou'") -ne $null)
+                                if ($null -eq ($adobject = Get-ADOrganizationalUnit -Filter "DistinguishedName -eq '$ou'"))
                                 {
                                     eleStart 'FilterOrgUnit'
                                         att 'bool' 'OR'
@@ -249,7 +250,7 @@ if (Test-Path "$PSScriptRoot\DriveMaps.xlsx")
                 else
                 {
                     Write-Host 'Failed' -ForegroundColor Red -NoNewline
-                    Write-Host ', missing either path or driver letter'
+                    Write-Host ', missing either path or drive letter'
                 }
                 $rows++
             }
@@ -260,11 +261,11 @@ if (Test-Path "$PSScriptRoot\DriveMaps.xlsx")
     $excel.Workbooks.Close()
     $excel.Quit()
     # Activate drive mappings in administrator context
-    if (($gpo | Get-GPPrefRegistryValue -Context Computer -Key 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -ValueName 'EnableLinkedConnections') -eq $null)
+    if ($null -eq ($gpo | Get-GPPrefRegistryValue -Context Computer -Key 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -ValueName 'EnableLinkedConnections'))
     {
         $gpo | Set-GPPrefRegistryValue -Context Computer -Key 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -ValueName 'EnableLinkedConnections' -Value 1 -Type DWord -Action Update | Out-Null
     }
-    $gpo.Description = "Configuration file was last edited on $((Get-Item "$PSScriptRoot\DriveMaps.xlsx").LastWriteTime.ToString('yyyy-MM-dd'))."
+    $gpo.Description = "Configuration file was last edited on $((Get-Item "$PSScriptRoot\DriveMaps.xlsx").LastWriteTime.ToString('yyyy-MM-dd'))"
 }
 else
 {
